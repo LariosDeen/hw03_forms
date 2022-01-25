@@ -51,15 +51,14 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     one_post = get_object_or_404(Post, id=post_id)
-    username = one_post.author
-    username_obj = User.objects.get(username=username)
-    posts_counter = username_obj.posts.count()
+    one_post_author = one_post.author
+    posts_counter = one_post_author.posts.count()
     group_name = one_post.group
     context = {
         'one_post': one_post,
         'posts_counter': posts_counter,
         'group_name': group_name,
-        'username': username,
+        'username': one_post_author,
         'post_id': post_id,
     }
     template = 'posts/post_detail.html'
@@ -77,21 +76,22 @@ def post_create(request):
     }
     if not form.is_valid():
         return render(request, template, context)
-    form.save()
-    return redirect(f'/profile/{author}/')
+    post = form.save(commit=False)
+    post.author = author
+    post.save()
+    return redirect('posts:profile', author)
 
 
 @login_required
 def post_edit(request, post_id):
     post = get_object_or_404(Post, id=post_id)
+    form = PostForm(request.POST or None, instance=post)
     if post.author != request.user:
-        return redirect(f'/posts/{post_id}/')
-    elif request.method == 'POST':
-        form = PostForm(request.POST, instance=post)
-        if form.is_valid():
-            form.save()
-            return redirect(f'/posts/{post_id}/')
-    form = PostForm(initial={'group': post.group, 'text': post.text})
+        return redirect('posts:post_detail', post_id)
+    if form.is_valid():
+        form.save()
+        return redirect('posts:post_detail', post_id)
+    form.initial = {'group': post.group, 'text': post.text}
     is_edit = True
     template = 'posts/create_post.html'
     context = {
